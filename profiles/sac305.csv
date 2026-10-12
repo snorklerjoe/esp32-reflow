@@ -1,0 +1,11 @@
+# SAC305 (Sn96.5/Ag3.0/Cu0.5) lead-free ramp-soak-spike profile
+time_s,temp_c
+0,25
+90,150
+180,180
+210,217
+230,240
+250,245
+270,217
+330,150
+390,80

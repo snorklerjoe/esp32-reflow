@@ -1,0 +1,10 @@
+# Sn42/Bi58 low-temperature solder (liquidus 138 C)
+time_s,temp_c
+0,25
+90,90
+180,130
+210,165
+230,165
+250,138
+300,100
+360,60

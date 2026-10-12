@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080f">
+<title>Reflow Controller</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ff3d7f'/%3E%3Cstop offset='1' stop-color='%23ffb800'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M16 2c1 6 8 9 8 17a8 8 0 0 1-16 0c0-4 2-6 4-8 0 3 1 5 3 5-1-5 0-10 1-14z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="flame-g" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff3d7f"/><stop offset="1" stop-color="#ffb800"/>
+    </linearGradient>
+    <symbol id="i-flame" viewBox="0 0 32 32"><path fill="url(#flame-g)" d="M16 2c1 6 8 9 8 17a8 8 0 0 1-16 0c0-4 2-6 4-8 0 3 1 5 3 5-1-5 0-10 1-14z"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============================== LOGIN ============================== -->
+<div id="login" class="login hidden">
+  <form id="login-form" class="login-card" autocomplete="on">
+    <svg class="login-logo"><use href="#i-flame"/></svg>
+    <h1 class="brand-big">REFLOW<span>//</span>CTRL</h1>
+    <p class="muted">Enter the controller password</p>
+    <input id="login-pw" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button class="btn hot wide" type="submit">Unlock</button>
+    <p id="login-err" class="err"></p>
+  </form>
+</div>
+
+<!-- ============================== APP ============================== -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand"><svg><use href="#i-flame"/></svg><b>REFLOW<span>//</span>CTRL</b></div>
+    <div class="chips">
+      <span class="chip mode" id="hdr-mode" data-mode="idle">IDLE</span>
+      <span class="chip t amb"><i></i><span id="hdr-amb">--.-°</span></span>
+      <span class="chip t aux"><i></i><span id="hdr-aux">--.-°</span></span>
+      <span class="chip heat" id="hdr-heat" title="SSR output"><i></i>SSR</span>
+      <span class="chip conn" id="hdr-conn" title="Connection"><i></i></span>
+    </div>
+    <div class="actions">
+      <button class="btn danger sm hidden" id="stop-all">■ STOP</button>
+      <button class="btn ghost sm" id="logout" title="Log out">Log out</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="home">Home</button>
+    <button data-tab="hold">Hold Temp</button>
+    <button data-tab="profiles">Profiles</button>
+    <button data-tab="reflow">Reflow</button>
+    <button data-tab="autotune">Autotune</button>
+    <button data-tab="settings">Settings <span class="lock-ico" id="settings-lock">🔒</span></button>
+    <button data-tab="about">About</button>
+  </nav>
+
+  <main>
+    <!-- ------------------------------ HOME ------------------------------ -->
+    <section class="tab" data-tab="home">
+      <div class="grid home-grid">
+        <div class="tcard amb">
+          <div class="label">Ambient</div>
+          <div class="tval"><span id="t-amb">--.-</span><small>°C</small></div>
+          <div class="tfoot" id="t-amb-f">Thermocouple 1</div>
+        </div>
+        <div class="tcard aux">
+          <div class="label">Aux</div>
+          <div class="tval"><span id="t-aux">--.-</span><small>°C</small></div>
+          <div class="tfoot" id="t-aux-f">Thermocouple 2</div>
+        </div>
+        <div class="card heater-card">
+          <div class="label">Heater</div>
+          <div class="heater-state">
+            <div class="coil" id="h-coil"><span></span><span></span><span></span></div>
+            <div>
+              <div class="big" id="h-state">OFF</div>
+              <div class="muted" id="h-sub">Idle</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn hot xl" id="h-on">Heater ON</button>
+            <button class="btn xl" id="h-off">Heater OFF</button>
+          </div>
+          <p class="muted small">Heater OFF also stops any running hold, reflow or autotune.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span class="label">Last 10 minutes</span><span class="legend" data-legend="amb aux duty"></span></div>
+        <canvas class="chart" id="c-home"></canvas>
+      </div>
+    </section>
+
+    <!-- ------------------------------ HOLD ------------------------------ -->
+    <section class="tab" data-tab="hold">
+      <div class="grid two">
+        <div class="card">
+          <div class="label">Hold a temperature</div>
+          <label class="field">Setpoint
+            <div class="input-unit"><input type="number" id="hold-sp" min="0" max="300" step="1" value="100"><span>°C</span></div>
+          </label>
+          <label class="field">Feedback thermocouple
+            <div class="seg" data-name="hold-sensor"><button data-v="aux" class="on">Aux</button><button data-v="ambient">Ambient</button></div>
+          </label>
+          <div class="btn-row">
+            <button class="btn hot xl" id="hold-start">Start hold</button>
+            <button class="btn xl" id="hold-stop">Stop</button>
+          </div>
+          <p class="muted small">PID-controlled. While holding, you can change the setpoint and press Update.</p>
+        </div>
+        <div class="card">
+          <div class="label">Live</div>
+          <div class="stats">
+            <div class="stat"><span>Setpoint</span><b id="hold-v-sp">--.-</b></div>
+            <div class="stat"><span>Measured</span><b id="hold-v-pv">--.-</b></div>
+            <div class="stat"><span>Error</span><b id="hold-v-err">--.-</b></div>
+            <div class="stat"><span>Output</span><b id="hold-v-duty">0%</b></div>
+          </div>
+          <div class="meter"><div id="hold-meter"></div></div>
+          <div class="pid-terms">
+            <span>P <b id="hold-p">0</b></span><span>I <b id="hold-i">0</b></span><span>D <b id="hold-d">0</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span class="label" id="hold-chart-t">Hold run</span><span class="legend" data-legend="amb aux sp duty"></span></div>
+        <canvas class="chart" id="c-hold"></canvas>
+      </div>
+    </section>
+
+    <!-- ------------------------------ PROFILES ------------------------------ -->
+    <section class="tab" data-tab="profiles">
+      <div class="grid profiles-grid">
+        <div class="card">
+          <div class="card-h"><span class="label">Profiles</span><span class="muted small" id="pf-count"></span></div>
+          <ul class="plist" id="pf-list"></ul>
+          <div class="divider"></div>
+          <div class="label">Upload a CSV</div>
+          <label class="drop" id="pf-drop">
+            <input type="file" accept=".csv,text/csv,text/plain" id="pf-file">
+            <span id="pf-drop-t">Drop a CSV here or tap to choose</span>
+          </label>
+          <input id="pf-new-name" placeholder="Profile name" maxlength="48">
+          <textarea id="pf-new-desc" placeholder="Description (optional)" maxlength="600" rows="2"></textarea>
+          <button class="btn hot wide" id="pf-upload" disabled>Upload profile</button>
+          <details class="help">
+            <summary>CSV format</summary>
+            <p>One <code>time_s,temp_c</code> pair per line. Times are seconds from the start and must strictly increase. An optional header line is skipped, and lines starting with <code>#</code> are ignored. The setpoint is linearly interpolated between points.</p>
+<pre>time_s,temp_c
+0,25
+90,150
+180,180
+210,217
+240,245
+270,217
+360,80</pre>
+          </details>
+        </div>
+        <div class="card" id="pf-detail">
+          <div class="empty-state" id="pf-empty">Select a profile</div>
+          <div id="pf-body" class="hidden">
+            <input id="pf-name" class="title-input" maxlength="48" aria-label="Profile name">
+            <textarea id="pf-desc" rows="3" maxlength="600" placeholder="Add a description…"></textarea>
+            <div class="pills" id="pf-stats"></div>
+            <canvas class="chart" id="c-profile"></canvas>
+            <div class="btn-row">
+              <button class="btn hot" id="pf-save">Save changes</button>
+              <button class="btn" id="pf-use">Use for reflow →</button>
+              <span class="spacer"></span>
+              <button class="btn danger" id="pf-del">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------ REFLOW ------------------------------ -->
+    <section class="tab" data-tab="reflow">
+      <div class="grid two">
+        <div class="card">
+          <div class="label">Run a reflow</div>
+          <label class="field">Profile <select id="rf-profile"></select></label>
+          <label class="field">Reference thermocouple
+            <div class="seg" data-name="rf-sensor"><button data-v="aux" class="on">Aux</button><button data-v="ambient">Ambient</button></div>
+          </label>
+          <button class="btn hot xl wide" id="rf-start">Start Reflow</button>
+          <button class="btn danger xl wide hidden" id="rf-stop">Abort reflow</button>
+        </div>
+        <div class="card">
+          <div class="phase-row">
+            <div class="phase" id="rf-phase">Ready</div>
+            <div class="clock"><span id="rf-elapsed">0:00</span><small> / <span id="rf-total">0:00</span></small></div>
+          </div>
+          <div class="progress"><div id="rf-progress"></div></div>
+          <div class="stats">
+            <div class="stat"><span>Setpoint</span><b id="rf-v-sp">--.-</b></div>
+            <div class="stat aux"><span>Aux</span><b id="rf-v-aux">--.-</b></div>
+            <div class="stat amb"><span>Ambient</span><b id="rf-v-amb">--.-</b></div>
+            <div class="stat"><span>Heater</span><b id="rf-v-duty">0%</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span class="label" id="rf-chart-t">Profile</span><span class="legend" data-legend="prof amb aux duty"></span></div>
+        <canvas class="chart tall" id="c-reflow"></canvas>
+      </div>
+    </section>
+
+    <!-- ------------------------------ AUTOTUNE ------------------------------ -->
+    <section class="tab" data-tab="autotune">
+      <div class="grid two">
+        <div class="card">
+          <div class="label">PID autotune · relay method</div>
+          <p class="muted small">The oven switches fully on below <i>target − hysteresis</i> and fully off above <i>target + hysteresis</i>. After it settles into a steady oscillation, the period and amplitude give the ultimate gain K<sub>u</sub> and period T<sub>u</sub>, which are used to compute PID gains. Expect 15–40 minutes; leave the door closed.</p>
+          <div class="field-row">
+            <label class="field">Target<div class="input-unit"><input type="number" id="at-target" value="150" min="50" max="260"><span>°C</span></div></label>
+            <label class="field">Hysteresis<div class="input-unit"><input type="number" id="at-hyst" value="2" min="0.25" max="10" step="0.25"><span>°C</span></div></label>
+            <label class="field">Cycles<input type="number" id="at-cycles" value="3" min="2" max="10"></label>
+          </div>
+          <label class="field">Feedback thermocouple
+            <div class="seg" data-name="at-sensor"><button data-v="aux" class="on">Aux</button><button data-v="ambient">Ambient</button></div>
+          </label>
+          <div class="btn-row">
+            <button class="btn hot xl" id="at-start">Start autotune</button>
+            <button class="btn xl" id="at-stop">Abort</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label">Progress</div>
+          <div class="stats">
+            <div class="stat"><span>State</span><b id="at-state">Idle</b></div>
+            <div class="stat"><span>Cycles</span><b id="at-cyc">–</b></div>
+            <div class="stat"><span>Last period</span><b id="at-per">–</b></div>
+            <div class="stat"><span>Last amplitude</span><b id="at-amp">–</b></div>
+          </div>
+          <div id="at-result" class="hidden">
+            <div class="divider"></div>
+            <div class="label">Result · K<sub>u</sub> <b id="at-ku"></b> · T<sub>u</sub> <b id="at-tu"></b></div>
+            <table class="gains">
+              <thead><tr><th>Rule</th><th>Kp</th><th>Ki</th><th>Kd</th><th></th></tr></thead>
+              <tbody id="at-rules"></tbody>
+            </table>
+            <p class="muted small">"No overshoot" is usually best for ovens. Applying gains needs the admin password.</p>
+          </div>
+          <div class="divider"></div>
+          <div class="pid-terms">Current gains: <span>Kp <b id="at-kp"></b></span><span>Ki <b id="at-ki"></b></span><span>Kd <b id="at-kd"></b></span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span class="label">Autotune run</span><span class="legend" data-legend="amb aux sp duty"></span></div>
+        <canvas class="chart" id="c-autotune"></canvas>
+      </div>
+    </section>
+
+    <!-- ------------------------------ SETTINGS ------------------------------ -->
+    <section class="tab" data-tab="settings">
+      <form id="set-unlock" class="card lock-card">
+        <div class="lock-big">🔒</div>
+        <div class="label">Admin access required</div>
+        <p class="muted small">Settings change hardware pins and control constants, so they need the admin password.</p>
+        <input type="password" id="set-admin-pw" placeholder="Admin password" autocomplete="off">
+        <button class="btn hot wide" type="submit">Unlock settings</button>
+      </form>
+      <form id="set-form" class="hidden">
+        <div class="grid two">
+          <div class="card">
+            <div class="label">GPIO pins</div>
+            <div class="pin-grid" id="set-pins"></div>
+            <label class="toggle"><input type="checkbox" id="set-activelow"><span></span>SSR is active-low</label>
+            <details class="help">
+              <summary>Which pins can I use?</summary>
+              <p>The MAX6675s are read with software SPI, so the bus can go on any general-purpose GPIO. The dropdowns only offer pins that are safe on an ESP-WROOM-32:</p>
+              <ul>
+                <li><b>6–11</b>: never usable. They're wired to the onboard flash.</li>
+                <li><b>0, 2, 5, 12, 15</b>: strapping pins, which can stop the board from booting. Pulling 12 high selects 1.8 V flash.</li>
+                <li><b>1, 3</b>: USB serial.</li>
+                <li><b>34–39</b>: input only. These are fine for <b>SO</b> but can't drive SCK, CS or the SSR.</li>
+              </ul>
+              <p>Changing pins stops any active run and takes effect immediately.</p>
+            </details>
+          </div>
+          <div class="card">
+            <div class="label">PID gains</div>
+            <div class="field-row">
+              <label class="field">Kp <small>%/°C</small><input type="number" step="any" min="0" id="set-kp"></label>
+              <label class="field">Ki <small>%/(°C·s)</small><input type="number" step="any" min="0" id="set-ki"></label>
+              <label class="field">Kd <small>%·s/°C</small><input type="number" step="any" min="0" id="set-kd"></label>
+            </div>
+            <div class="divider"></div>
+            <div class="label">Control &amp; safety</div>
+            <div class="field-row">
+              <label class="field">SSR window<div class="input-unit"><input type="number" id="set-window" min="200" max="10000" step="50"><span>ms</span></div></label>
+              <label class="field">Max temp<div class="input-unit"><input type="number" id="set-maxtemp" min="50" max="350"><span>°C</span></div></label>
+              <label class="field">Door margin<div class="input-unit"><input type="number" id="set-door" min="0" max="50" step="0.5"><span>°C</span></div></label>
+            </div>
+            <p class="muted small">The SSR window is the time-proportioning period: the heater is on for duty% of each window. Max temp is a hard cutoff checked on both thermocouples in every mode. The door margin sets how far above a falling setpoint the oven must be before the app says to open the door.</p>
+          </div>
+        </div>
+        <div class="btn-row end">
+          <button type="button" class="btn ghost" id="set-defaults">Load defaults</button>
+          <button type="button" class="btn ghost" id="set-revert">Revert</button>
+          <button type="submit" class="btn hot">Save settings</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ------------------------------ ABOUT ------------------------------ -->
+    <section class="tab" data-tab="about">
+      <div class="marquee" id="marquee">
+        <div class="bulbs" id="bulbs"></div>
+        <div class="marquee-inner">
+          <div class="mq-now">★ NOW SHOWING ★</div>
+          <div class="mq-title">Reflow Oven Controller</div>
+          <div class="mq-by">by Joe Freeston '27</div>
+          <div class="mq-made">Made with Claude Opus 5.5</div>
+        </div>
+      </div>
+      <p class="muted center small" id="about-meta"></p>
+    </section>
+  </main>
+</div>
+
+<!-- Big red OPEN DOOR overlay -->
+<div id="door" class="door"><div>OPEN DOOR</div><small>The oven is above the cooling curve</small></div>
+
+<!-- Admin password modal -->
+<div id="modal" class="modal hidden">
+  <form class="modal-card" id="modal-form">
+    <div class="label">Admin password required</div>
+    <input type="password" id="modal-pw" placeholder="Admin password" autocomplete="off">
+    <p class="err" id="modal-err"></p>
+    <div class="btn-row end">
+      <button type="button" class="btn ghost" id="modal-cancel">Cancel</button>
+      <button type="submit" class="btn hot">Unlock</button>
+    </div>
+  </form>
+</div>
+
+<div id="toasts" class="toasts"></div>
+<script src="/app.js"></script>
+</body>
+</html>
