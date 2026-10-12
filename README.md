@@ -51,7 +51,7 @@ That leaves **4, 13, 14, 16–19, 21–23, 25–27, 32 and 33** for outputs. SO 
 | **Home** | Ambient and aux temperatures, plus Heater ON / Heater OFF and a 10-minute trend. Heater OFF is a global stop. |
 | **Hold Temp** | PID hold at a typed setpoint, using whichever thermocouple you pick for feedback. You can change the setpoint live. |
 | **Profiles** | Upload CSV profiles, rename them, add descriptions, see them plotted, and delete them. |
-| **Reflow** | Pick a profile and reference thermocouple (aux by default), then start. Live plot of profile vs. ambient/aux plus heater duty. Shows a big red **OPEN DOOR** when needed. |
+| **Reflow** | Pick a profile and reference thermocouple (aux by default), then start. Live plot of profile vs. ambient/aux plus heater duty. Shows a big red **OPEN DOOR** when needed. Force ON / Force OFF heater overrides while running. |
 | **Autotune** | Relay-method (Åström–Hägglund) PID autotune. Shows the resulting gains for three tuning rules with one-click Apply (admin). |
 | **Settings** | Admin only: GPIO pins, SSR polarity, PID gains, SSR window, over-temperature limit, door margin. |
 | **About** | Credits on a theatre marquee with chasing bulbs. |
@@ -131,6 +131,7 @@ curl -s http://192.168.4.1/api/status -H "Authorization: Bearer $TOKEN"
 | PUT | `/api/profile` | user | `?id=N`, `{name?, description?, csv?}` | Renames, re-describes or replaces points. |
 | DELETE | `/api/profile` | user | `?id=N` | Deletes a profile. |
 | POST | `/api/reflow/start` | user | `{profileId, sensor}` | Starts a reflow. `sensor` defaults to `"aux"`. |
+| POST | `/api/reflow/override` | user | `{forceOn?, forceOff?}` | During a reflow: heater = (PID OR forceOn) AND NOT forceOff. Cleared when the reflow ends. |
 | POST | `/api/autotune/start` | user | `{target, hysteresis?, cycles?, sensor?}` | Starts the relay autotune. |
 | GET | `/api/autotune` | user | | Autotune progress and result. |
 | POST | `/api/autotune/apply` | admin | `{rule}` | Applies `"none"`, `"some"` or `"classic"` gains and saves them. |

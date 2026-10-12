@@ -22,6 +22,8 @@ String startHold(float setpoint, Sensor sensor);
 String startReflow(int profileId, Sensor sensor);
 String startAutotune(float target, Sensor sensor, float hysteresis, int cycles);
 String applyAutotune(const char* rule);
+// Null pointers leave that flag unchanged. Cleared when the reflow ends.
+String setReflowOverride(const bool* forceOn, const bool* forceOff);
 void stop(const char* reason);
 
 // Call after settings::current() changes.

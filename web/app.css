@@ -100,6 +100,9 @@ input[type=number] { font-family: var(--mono); font-size: 15px; }
 .btn.xl { padding: 15px 20px; font-size: 15.5px; }
 .btn.wide { width: 100%; }
 .btn.active { outline: 2px solid #fff; outline-offset: 2px; }
+.override .btn { flex: 1; }
+#rf-force-on.engaged { background: var(--grad-hot); border-color: transparent; color: #fff; box-shadow: 0 0 18px -2px rgba(255, 90, 60, .9); }
+#rf-force-off.engaged { background: var(--amb); border-color: transparent; color: #04121c; box-shadow: 0 0 18px -2px rgba(56, 189, 248, .9); }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
 .btn-row > .btn.xl { flex: 1; }
 .btn-row.end { justify-content: flex-end; }

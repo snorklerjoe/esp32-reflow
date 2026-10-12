@@ -85,6 +85,9 @@ Pid g_pid;
 RunInfo g_run;
 Profile g_profile;
 bool g_openDoor = false;
+// Reflow-only manual overrides: SSR = (pid || forceOn) && !forceOff.
+bool g_forceOn = false;
+bool g_forceOff = false;
 Autotune g_at;
 
 Sample g_hist[cfg::kHistoryLen];
@@ -145,9 +148,13 @@ void claimPins() {
   g_pins = s.pins;
   bool offLevel = s.ssrActiveLow;
   digitalWrite(g_pins.ssr, offLevel ? HIGH : LOW);
-  pinMode(g_pins.ssr, OUTPUT);
+  // INPUT|OUTPUT keeps the input buffer on so digitalRead reports the real pad level.
+  pinMode(g_pins.ssr, INPUT | OUTPUT);
   g_pinsActive = true;
   writeSsr(false);
+  Serial.printf("SSR on GPIO %u (active-%s); TC SCK=%u SO=%u CS amb=%u aux=%u\n", g_pins.ssr,
+                s.ssrActiveLow ? "low" : "high", g_pins.sck, g_pins.so, g_pins.csAmbient,
+                g_pins.csAux);
   g_tc[0].begin(g_pins.sck, g_pins.so, g_pins.csAmbient);
   g_tc[1].begin(g_pins.sck, g_pins.so, g_pins.csAux);
   for (auto& st : g_sens) st = SensorState{};
@@ -165,7 +172,15 @@ void updateSsr(uint32_t now) {
   } else {
     on = (now - g_windowStart) < static_cast<uint32_t>(g_duty * win / 100.0f);
   }
+  if (g_mode == Mode::Reflow) on = (on || g_forceOn) && !g_forceOff;
   if (on != g_ssrOn) writeSsr(on);
+}
+
+// Duty actually reaching the heater, after reflow overrides.
+float effectiveDuty() {
+  if (g_mode == Mode::Reflow && g_forceOff) return 0;
+  if (g_mode == Mode::Reflow && g_forceOn) return 100;
+  return g_duty;
 }
 
 void readSensors() {
@@ -203,6 +218,7 @@ void endRun(const char* result) {
   g_duty = 0;
   g_setpoint = NAN;
   g_openDoor = false;
+  g_forceOn = g_forceOff = false;
   writeSsr(false);
   if (g_run.active) {
     g_run.active = false;
@@ -229,6 +245,7 @@ void beginRun(Mode kind, Sensor sensor) {
   g_mode = kind;
   g_fb = sensor;
   g_openDoor = false;
+  g_forceOn = g_forceOff = false;
 }
 
 String checkFeedbackReady(Sensor s) {
@@ -360,7 +377,7 @@ void recordSample() {
   s.amb = toTenths(g_sens[0].c);
   s.aux = toTenths(g_sens[1].c);
   s.sp = closedLoop(g_mode) ? toTenths(g_setpoint) : kNoValue;
-  s.duty = static_cast<uint8_t>(lroundf(g_duty));
+  s.duty = static_cast<uint8_t>(lroundf(effectiveDuty()));
   ++g_histCount;
 }
 
@@ -443,6 +460,9 @@ String setManual(bool on) {
   g_mode = Mode::Manual;
   g_duty = 100;
   updateSsr(millis());
+  Serial.printf("Manual heater ON: GPIO %u commanded %s, pad reads %s\n", g_pins.ssr,
+                settings::current().ssrActiveLow ? "LOW" : "HIGH",
+                digitalRead(g_pins.ssr) ? "HIGH" : "LOW");
   return "";
 }
 
@@ -545,6 +565,16 @@ String applyAutotune(const char* rule) {
   return "Unknown rule";
 }
 
+String setReflowOverride(const bool* forceOn, const bool* forceOff) {
+  if (g_mode != Mode::Reflow) return "Overrides are only available during a reflow";
+  if (forceOn) g_forceOn = *forceOn;
+  if (forceOff) g_forceOff = *forceOff;
+  updateSsr(millis());
+  event("info", String("Heater override: force on ") + (g_forceOn ? "ON" : "off") +
+                    ", force off " + (g_forceOff ? "ON" : "off"));
+  return "";
+}
+
 void stop(const char* reason) {
   bool wasActive = g_mode != Mode::Idle;
   endRun("stopped");
@@ -567,7 +597,10 @@ void statusJson(JsonObject o) {
   uint32_t now = millis();
   o["mode"] = modeName(g_mode);
   o["heater"] = g_ssrOn;
-  o["duty"] = roundf(g_duty * 10) / 10;
+  o["ssrPin"] = g_pins.ssr;
+  o["ssrPadHigh"] = g_pinsActive && digitalRead(g_pins.ssr);
+  o["duty"] = roundf(effectiveDuty() * 10) / 10;  // what the heater actually gets
+  o["pidDuty"] = roundf(g_duty * 10) / 10;
   JsonObject sens = o["sensors"].to<JsonObject>();
   sensorJson(sens["ambient"].to<JsonObject>(), g_sens[0]);
   sensorJson(sens["aux"].to<JsonObject>(), g_sens[1]);
@@ -610,6 +643,8 @@ void statusJson(JsonObject o) {
       run["profileName"] = g_run.profileName;
       run["duration"] = g_run.duration;
       run["openDoor"] = g_openDoor;
+      run["forceOn"] = g_forceOn;
+      run["forceOff"] = g_forceOff;
     }
   } else {
     o["run"] = nullptr;

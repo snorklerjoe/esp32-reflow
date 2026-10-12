@@ -237,6 +237,15 @@ void routeControl() {
     sendResult(req, controller::startReflow(json["profileId"].as<int>(), sensor));
   });
 
+  onJson("/api/reflow/override", HTTP_POST, [](AsyncWebServerRequest* req, JsonVariant& json) {
+    if (!require(req, ROLE_USER)) return;
+    bool on = json["forceOn"] | false, off = json["forceOff"] | false;
+    bool hasOn = json["forceOn"].is<bool>(), hasOff = json["forceOff"].is<bool>();
+    if (!hasOn && !hasOff) return sendError(req, 400, "Expected {\"forceOn\": bool} and/or {\"forceOff\": bool}");
+    LockGuard lock;
+    sendResult(req, controller::setReflowOverride(hasOn ? &on : nullptr, hasOff ? &off : nullptr));
+  });
+
   onJson("/api/autotune/start", HTTP_POST, [](AsyncWebServerRequest* req, JsonVariant& json) {
     if (!require(req, ROLE_USER)) return;
     Sensor sensor;

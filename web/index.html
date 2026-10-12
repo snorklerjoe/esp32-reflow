@@ -188,6 +188,15 @@
           </label>
           <button class="btn hot xl wide" id="rf-start">Start Reflow</button>
           <button class="btn danger xl wide hidden" id="rf-stop">Abort reflow</button>
+          <div id="rf-override" class="hidden">
+            <div class="divider"></div>
+            <div class="label">Manual heater override</div>
+            <div class="btn-row override">
+              <button class="btn" id="rf-force-on">Force ON</button>
+              <button class="btn" id="rf-force-off">Force OFF</button>
+            </div>
+            <p class="muted small">Heater = (PID <b>OR</b> force on) <b>AND NOT</b> force off. Force off wins if both are set. The profile and PID keep running; both overrides clear when the reflow ends.</p>
+          </div>
         </div>
         <div class="card">
           <div class="phase-row">

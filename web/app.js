@@ -417,6 +417,12 @@ function renderReflow() {
 
   $('#rf-start').classList.toggle('hidden', active);
   $('#rf-stop').classList.toggle('hidden', !active);
+  $('#rf-override').classList.toggle('hidden', !active);
+  const fOn = !!(active && run.forceOn), fOff = !!(active && run.forceOff);
+  $('#rf-force-on').classList.toggle('engaged', fOn);
+  $('#rf-force-off').classList.toggle('engaged', fOff);
+  $('#rf-force-on').textContent = fOn ? 'Force ON · engaged' : 'Force ON';
+  $('#rf-force-off').textContent = fOff ? 'Force OFF · engaged' : 'Force OFF';
   $('#rf-start').disabled = busy || !S.profiles.length;
   $('#rf-profile').disabled = active;
   $('.seg[data-name="rf-sensor"]').classList.toggle('disabled', active);
@@ -438,7 +444,7 @@ function renderReflow() {
   $('#rf-v-sp').textContent = active ? fmt1(st.setpoint) : '--.-';
   $('#rf-v-aux').textContent = fmt1(st.sensors.aux.c);
   $('#rf-v-amb').textContent = fmt1(st.sensors.ambient.c);
-  $('#rf-v-duty').textContent = Math.round(st.duty) + '%';
+  $('#rf-v-duty').innerHTML = Math.round(st.duty) + '%' + (active && (run.forceOn || run.forceOff) ? ` <small class="muted" style="font-size:12px">PID ${Math.round(st.pidDuty)}%</small>` : '');
   $('#rf-chart-t').textContent = showRun ? `${run.profileName} · ${run.sensor} reference` : (prof ? prof.name : 'Profile');
 
   const series = [{ name: 'Profile', color: COLOR.prof, data: pts, dash: [7, 5], width: 2, glow: 6, fill: true }];
@@ -866,6 +872,14 @@ function wire() {
     await api('/api/stop', { method: 'POST', body: {} });
     await poll();
   });
+
+  const override = (key, btn) => act(btn, async () => {
+    const run = S.status && S.status.run;
+    await api('/api/reflow/override', { method: 'POST', body: { [key]: !(run && run[key]) } });
+    await poll();
+  });
+  $('#rf-force-on').onclick = e => override('forceOn', e.currentTarget);
+  $('#rf-force-off').onclick = e => override('forceOff', e.currentTarget);
 
   // autotune
   $('#at-start').onclick = e => act(e.currentTarget, async () => {
